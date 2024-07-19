@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>历史记录</title>
+  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" />
+  <style>
+    body {
+      background-color: #f8f9fa;
+    }
+    .container {
+      margin-top: 50px;
+    }
+    .title {
+      margin-bottom: 30px;
+    }
+    .table-responsive {
+      margin-top: 20px;
+    }
+    .action-buttons {
+      display: flex;
+      justify-content: space-around;
+    }
+    .progress {
+      margin-top: 20px;
+      position: relative;
+    }
+    .progress-bar {
+      position: relative;
+      z-index: 1;
+    }
+    .progress-bar span {
+      color: black;  /* 文字颜色设置为黑色 */
+      position: {% autoescape off %}{% endautoescape %};
+      width: 100%;
+      left: 0;
+      top: 0;
+      z-index: 2;
+     
+    }
+    .annotation {
+     /* writing-mode: horizontal-tb !important;  确保文字水平显示 */
+      text-align: center; /* 文字居中显示 */
+      display: inline-block; /* 确保元素为内联块级元素 */
+      width: auto; /* 根据内容自动调整宽度 */
+    }
+    .input_confidence{
+      text-align: center; /* 文字居中显示 */
+      display: inline-block; /* 确保元素为内联块级元素 */
+      width: auto; /* 根据内容自动调整宽度 */
+    }
+    .span_confidence{
+      writing-mode: horizontal-tb !important;
+      text-align: center; /* 文字居中显示 */
+      display: inline-block; /* 确保元素为内联块级元素 */
+      width: auto; /* 根据内容自动调整宽度 */
+    }
+
+
+
+  </style>
+</head>
+<body>
+  <script>
+      var tag_index = 0;
+
+      function fetchData() {
+          let question = document.getElementsByClassName("question")[tag_index];
+          let span_ai_answer = document.getElementsByClassName("span_ai_answer")[tag_index];
+          let input_ai_answer = document.getElementsByClassName("input_ai_answer")[tag_index];
+          let span_confidence = document.getElementsByClassName("span_confidence")[tag_index];
+          let input_confidence = document.getElementsByClassName("input_confidence")[tag_index];
+          tag_index = tag_index + 1;
+
+          if (tag_index >= document.getElementsByClassName("question").length) {
+            return; // 此处确保不会超出问题总数
+          }
+          let data = {
+              'question': question.textContent
+          }
+          fetch('/generate_ai_answer', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(data)
+          })
+          .then((response) => response.json())
+          .then((data) => {
+              span_ai_answer.textContent = data.ai_answer;
+              input_ai_answer.value = data.ai_answer;
+              span_confidence.textContent = data.confidence;
+              input_confidence.value = data.confidence;
+
+              let count = document.getElementsByClassName("question").length;
+              updateProgress(tag_index, count);
+              if(tag_index < count){
+                  setTimeout(fetchData, 100);
+              }
+          });
+      }
+
+      function compareResults() {
+          let standard = document.getElementsByClassName("standard")[tag_index];
+          let ai_answer = document.getElementsByClassName("span_ai_answer")[tag_index];
+          let span_result = document.getElementsByClassName("span_result")[tag_index];
+          let input_result = document.getElementsByClassName("input_result")[tag_index];
+          let score = document.getElementsByClassName("score")[tag_index];
+          tag_index = tag_index + 1;
+          
+          let data = {
+              'standard': standard.textContent,
+              'ai_answer': ai_answer.textContent
+          }
+          fetch('/get_AI_result', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(data)
+          })
+          .then((response) => response.json())
+          .then((data) => {
+              span_result.textContent = data.result;
+              input_result.value = data.result;
+              score.textContent = data.score;
+
+              let count = document.getElementsByClassName("standard").length;
+              updateProgress(tag_index, count);
+              if(tag_index < count){
+                  setTimeout(compareResults, 100);
+              }
+          });
+      }
+
+      function exportTableToCSV() {
+          var csv = [];
+          var rows = document.querySelectorAll("table tr");
+
+          for (var i = 0; i < rows.length; i++) {
+              var row = [], cols = rows[i].querySelectorAll("td, th");
+
+              for (var j = 0; j < cols.length; j++) 
+                  row.push('"' + cols[j].innerText.replace(/"/g, '""') + '"');
+              var tdElement=cols[cols.length-1];
+              var select=tdElement.querySelector('select');
+              if(select!=null){
+                row[cols.length-1]='"' + select.value+ '"'
+              }
+              csv.push(row.join(","));
+          }
+
+          var csvFile = new Blob([csv.join("\n")], {type: "text/csv"});
+          var downloadLink = document.createElement("a");
+          downloadLink.download = 'export.csv';
+          downloadLink.href = window.URL.createObjectURL(csvFile);
+          downloadLink.style.display = "none";
+          document.body.appendChild(downloadLink);
+          downloadLink.click();
+      }
+
+      function updateProgress(current, total) {
+          let progressBar = document.getElementById("progressBar");
+          progressBar.style.width = (current / total) * 100 + '%';
+          progressBar.setAttribute('aria-valuenow', current);
+          progressBar.querySelector('span').textContent = current + '/' + total;
+      }
+  </script>
+  
+  <div class="container">
+    <h1 class="title text-center">历史记录</h1>
+    <div class="text-center mb-4">
+      <a href="{{ url_for('index') }}" class="btn btn-secondary">返回首页</a>
+      <a href="javascript:void(0);" onclick="fetchData()" class="btn btn-info">获取AI回答</a>
+      <a href="javascript:void(0);" onclick="compareResults()" class="btn btn-info">对比结果</a>
+      <a href="javascript:void(0);" onclick="exportTableToCSV()" class="btn btn-success">导出数据</a>
+    </div>
+    <div class="progress">
+      <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0"
+           aria-valuemin="0" aria-valuemax="100"><span>0/0</span>
+      </div>
+    </div>
+    <div class="table-responsive" id="table-responsive">
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>问题</th>
+            <th>答案</th>
+            <th>AI知识回答原文</th>
+            <th>结果</th>
+            <th>置信度</th>
+            <th>人工标注</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for index, row in df.iterrows() %}
+            <tr>
+              <td>{{ index }}</td>
+              <td>
+                <span class="question">{{ row.问题 }}</span>
+              </td>
+              <td>
+                <span class="standard">{{ row.答案 }}</span>
+              </td>
+              <td>
+                <span class="span_ai_answer">{{ row.AI知识回答原文 }}</span>
+                <input class="input_ai_answer form-control result-input" type="hidden" value="{{ row.AI知识回答原文 }}" />
+              </td>
+              <td>
+                <span class="span_result">{{ row.结果 }}</span>
+                <input class="input_result form-control result-input" type="hidden" value="{{ row.结果 }}" />
+              </td>
+              <td>
+                <span class="score">未计算</span>
+                <input class="input_confidence form-control result-input" type="hidden" value="{{ row.置信度 }}" />
+              </td>
+              <td>
+                <select class="form-control annotation" data-index="{{ index }}">
+                  <option value="未知" selected>未知</option>
+                  <option value="通过" {% if row.结果 == '通过' %}selected{% endif %}>通过</option>
+                  <option value="不通过" {% if row.结果 == '不通过' %}selected{% endif %}>不通过</option>
+                  <option value="不确定" {% if row.结果 == '不确定' %}selected{% endif %}>不确定</option>
+                </select>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+  <!--<script>
+    $(document).ready(function(){
+      $('.annotation').change(function(){
+        let index = $(this).data('index');
+        let annotation = $(this).val();
+        $.ajax({
+          url: '/update_annotation/' + index,
+          method: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ annotation: annotation }),
+          success: function(response) {
+            if (response.success) {
+              alert('人工标注已更新');
+            } else {
+              alert('更新失败，请重试');
+            }
+          },
+          error: function() {
+            alert('请求失败，请重试');
+          }
+        });
+      });
+    });
+  </script>
+-->
+</body>
+</html>
