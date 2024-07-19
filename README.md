@@ -78,3 +78,8 @@ AGICFinal/
 
 1. Click on **Export Data** to download the results in CSV format.
 
+ ## Notes
+ 1.这个web app是为某大公司开发的，后期部署到了阿里云堡垒服务器上面。port重新在服务器网页重定义为了1234，名字是aigc
+ 2.源代码文件通过终端ssh的连接，上传到了阿里云堡垒系统的ai知识—商务里面的/目录下面的data目录
+ 
+
